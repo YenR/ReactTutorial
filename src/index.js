@@ -4,7 +4,7 @@ import './index.css';
 
 function Square(props) {
     return (
-        <button className = "square" onClick={props.onClick}>
+        <button className ={props.className} onClick={props.onClick}>
             {props.value}
         </button>
     );
@@ -12,24 +12,43 @@ function Square(props) {
 
 class Board extends React.Component {
 
+    // normal square
     renderSquare(i) {
       return (<Square
+          className={"square"}
+          key={i.toString()}
           value={this.props.squares[i]}
           onClick = {() => this.props.onClick(i)}
       />);
     }
 
+    // highlighted as part of the winning squares
+    renderHighlightedSquare(i) {
+        return (<Square
+            className={"square_highlighted"}
+            key={i.toString()}
+            value={this.props.squares[i]}
+            onClick = {() => this.props.onClick(i)}
+        />);
+    }
+
     render() {
-        // improved code, functionally same as below but with extendable loops
+        //improved code, functionally same as below but with extendable loops
         return (
-            <div>
+            <div key ={'mainboard'}>
             {
                 [0,1,2].map( (i) => {
                     return(
-                        <div className="board-row">
+                        <div className="board-row" key={'board' + i}>
                         {
                             [0,1,2].map( (j) => {
-                                return this.renderSquare(i*3+j) // the 3 is still hardcoded
+                                let squareID = (i*3+j);         // the 3 is still hardcoded
+                                if(calculateWinner(this.props.squares) && winningTile(this.props.squares, squareID))
+                                {
+                                    //console.log('square ' + squareID + ' is a winning square')
+                                    return this.renderHighlightedSquare(squareID);
+                                }
+                                return this.renderSquare(squareID);
                             })
                         }
                         </div>
@@ -41,7 +60,7 @@ class Board extends React.Component {
 
         // return (
         //   <div>
-        //     <div
+        //     <div className="board-row">
         //       {this.renderSquare(0)}
         //       {this.renderSquare(1)}
         //       {this.renderSquare(2)}
@@ -71,6 +90,7 @@ class Game extends React.Component {
             }],
             xIsNext: true,
             stepNumber: 0,
+            toggle: false,
         }
     }
 
@@ -101,11 +121,21 @@ class Game extends React.Component {
         });
     }
 
+    /**
+     * toggles between sorting history in descending or ascending order
+     */
+    clickToggle()
+    {
+        this.setState({toggle: !this.state.toggle});
+        //console.log("toggled to: " + this.state.toggle);
+    }
+
     render()
     {
         const history = this.state.history;
         const current = history[this.state.stepNumber];
         const winner = calculateWinner(current.squares);
+        const draw = calculateDraw(current.squares);
 
         const moves = history.map((step, move) => {
             // Description of button including move number, square that was changed and inserted symbol
@@ -125,12 +155,22 @@ class Game extends React.Component {
                     </button>
                 </li>
             );
-
         });
+
+        const toggleButton = <button onClick={() => this.clickToggle()}>{
+            "Move Sorting Order: " + (this.state.toggle ? "Ascending" : "Descending")}
+        </button>;
+
+        if(this.state.toggle)
+            moves.reverse();
 
         let status;
         if(winner) {
             status = 'Winner: ' + winner;
+        }
+        else if (draw)
+        {
+            status = "Draw";
         }
         else
         {
@@ -147,6 +187,7 @@ class Game extends React.Component {
             </div>
             <div className="game-info">
               <div>{status}</div>
+              <div>{toggleButton}</div>
               <ol>{
                   moves
               }</ol>
@@ -198,6 +239,52 @@ function iToCoords(i)
         y = 2;
 
     return '(' + (i-3*y+1) + ', ' + (y+1) + ')'
+}
+
+/**
+ * checks whether or not the square with the given number i is part of a winning line
+ * based on the calculateWinner function below
+ * @param squares the field of squares, should be in won condition
+ * @param i the number of the field to be tested
+ * @returns {boolean} true if field i was responsible for the win, false otherwise
+ */
+function winningTile(squares, i)
+{
+    const lines = [
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8],
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8],
+        [0, 4, 8],
+        [2, 4, 6],
+    ];
+    for (let j = 0; j < lines.length; j++) {
+        const [a, b, c] = lines[j];
+        if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
+            if(i === a || i === b || i === c)
+                return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * returns true if the game is a draw (no more moves and no winner)
+ * @param squares current board state
+ */
+function calculateDraw(squares)
+{
+    for(let i of squares)
+    {
+        if(!i)
+            return false;
+    }
+    if(calculateWinner(squares))    // redundant but for call safety
+        return false;
+    //console.log("draw detected");
+    return true;
 }
 
 /**
